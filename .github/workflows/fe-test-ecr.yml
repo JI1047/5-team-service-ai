@@ -60,17 +60,6 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Cleanup Docker cache before build
-        run: |
-          docker system prune -af || true
-          docker builder prune -af || true
-
-      - name: Show disk usage
-        run: |
-          df -h
-          df -ih
-          docker system df -v || true
-
       - name: Configure AWS credentials (OIDC)
         uses: aws-actions/configure-aws-credentials@v4
         with:
@@ -136,6 +125,12 @@ jobs:
             '[
               "set -eu",
               ("aws ecr get-login-password --region " + $region + " | docker login --username AWS --password-stdin " + $registry),
+              "df -h || true",
+              "df -ih || true",
+              "docker system df || true",
+              "docker system prune -af --volumes || true",
+              "docker builder prune -af || true",
+              "docker system df || true",
               ("docker pull " + $image),
               ("docker stop " + $cname + " || true"),
               ("docker rm " + $cname + " || true"),
