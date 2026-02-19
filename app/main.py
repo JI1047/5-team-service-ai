@@ -1,21 +1,13 @@
 import logging
 
-# ✅ 1. 가장 먼저 SSM 로드!
-from app.core.ssm import load_ssm_parameters
-load_ssm_parameters()
-
-# ✅ 2. dotenv
 from dotenv import load_dotenv
-load_dotenv()
-
-# ✅ 3. FastAPI
 from fastapi import FastAPI
-
-# ✅ 4. 이제 router import (Settings가 이미 준비됨)
-from app.routers.book_report_validation_router import router as book_report_validation_router
-from app.api.routes.recommendation import router as recommendation_router
-from app.api.routes.quiz import router as quiz_router
+from app.core.ssm import load_ssm_parameters
 from app.core.scheduler import shutdown_scheduler, start_scheduler
+
+# Ensure settings sources are loaded before importing routers.
+load_ssm_parameters()
+load_dotenv()
 
 logging.basicConfig(
     level=logging.INFO,
@@ -32,9 +24,19 @@ def health_check():
     return {"status": "ok"}
 
 
-app.include_router(book_report_validation_router)
-app.include_router(recommendation_router)
-app.include_router(quiz_router)
+def _register_routers() -> None:
+    from app.api.routes.quiz import router as quiz_router
+    from app.api.routes.recommendation import router as recommendation_router
+    from app.routers.book_report_validation_router import (
+        router as book_report_validation_router,
+    )
+
+    app.include_router(book_report_validation_router)
+    app.include_router(recommendation_router)
+    app.include_router(quiz_router)
+
+
+_register_routers()
 
 
 @app.on_event("startup")

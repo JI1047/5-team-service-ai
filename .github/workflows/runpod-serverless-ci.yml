@@ -1,0 +1,70 @@
+name: RunPod Serverless CI/CD
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - feature/cicd
+    paths:
+      - 'Dockerfile.serverless'
+      - 'handler.py'
+      - 'requirements-serverless.txt'
+      - 'scripts/runpod_serverless_entrypoint.sh'
+      - '.github/workflows/runpod-serverless-ci.yml'
+
+concurrency:
+  group: runpod-serverless-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  AWS_REGION: ap-northeast-2
+  ECR_REPOSITORY: doktori/ai-runpod-serverless
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Login to Amazon ECR
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Set image tags
+        id: meta
+        run: |
+          REGISTRY="${{ secrets.ECR_REGISTRY }}"
+          SHORT_SHA="${GITHUB_SHA:0:7}"
+          {
+            echo "tags<<EOF"
+            echo "${REGISTRY}/${ECR_REPOSITORY}:feature-cicd"
+            echo "${REGISTRY}/${ECR_REPOSITORY}:sha-${SHORT_SHA}"
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build and push RunPod serverless image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: Dockerfile.serverless
+          platforms: linux/amd64
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          cache-from: type=gha,scope=runpod-serverless
+          cache-to: type=gha,mode=max,scope=runpod-serverless
