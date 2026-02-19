@@ -66,7 +66,10 @@ jobs:
           docker builder prune -af || true
 
       - name: Show disk usage
-        run: df -h
+        run: |
+          df -h
+          df -ih
+          docker system df -v || true
 
       - name: Configure AWS credentials (OIDC)
         uses: aws-actions/configure-aws-credentials@v4
