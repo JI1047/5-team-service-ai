@@ -41,6 +41,9 @@ jobs:
 
       - name: Pytest
         continue-on-error: true
+        env:
+          DB_URL: ${{ secrets.DB_URL }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
         run: pytest -q || echo "::warning::Tests failed or no tests found"
 
   build_and_push:

@@ -35,7 +35,9 @@ class QuizGenerateResponse(BaseModel):
 def _client() -> RunpodClient:
     settings = get_settings()
     if not settings.runpod_endpoint_id or not settings.runpod_api_key:
-        raise HTTPException(status_code=503, detail="RUNPOD endpoint or API key not configured")
+        raise HTTPException(
+            status_code=503, detail="RUNPOD endpoint or API key not configured"
+        )
     return RunpodClient(
         endpoint_id=settings.runpod_endpoint_id,
         api_key=settings.runpod_api_key,
