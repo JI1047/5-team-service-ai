@@ -96,6 +96,20 @@ jobs:
     permissions:
       id-token: write
       contents: read
+    env:
+      DB_URL: ${{ secrets.DB_URL }}
+      GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+      GEMINI_MODEL: ${{ vars.GEMINI_MODEL || 'models/gemini-2.5-flash' }}
+      ENABLE_RECO_SCHEDULER: ${{ vars.ENABLE_RECO_SCHEDULER || 'false' }}
+      RECO_SCHEDULER_CRON: ${{ vars.RECO_SCHEDULER_CRON || '0 9 * * 1' }}
+      RECO_SCHEDULER_TZ: ${{ vars.RECO_SCHEDULER_TZ || 'Asia/Seoul' }}
+      RECO_SCHEDULER_TOP_K: ${{ vars.RECO_SCHEDULER_TOP_K || '4' }}
+      RECO_SCHEDULER_SEARCH_K: ${{ vars.RECO_SCHEDULER_SEARCH_K || '20' }}
+      API_KEY: ${{ secrets.API_KEY }}
+      RUNPOD_ENDPOINT_ID: ${{ secrets.RUNPOD_ENDPOINT_ID }}
+      RUNPOD_API_KEY: ${{ secrets.RUNPOD_API_KEY }}
+      RUNPOD_POLL_INTERVAL_SECONDS: ${{ vars.RUNPOD_POLL_INTERVAL_SECONDS || '2' }}
+      RUNPOD_POLL_TIMEOUT_SECONDS: ${{ vars.RUNPOD_POLL_TIMEOUT_SECONDS || '120' }}
     steps:
       - name: Configure AWS credentials (OIDC)
         uses: aws-actions/configure-aws-credentials@v4
@@ -123,8 +137,21 @@ jobs:
             --arg image "${IMAGE_URI}" \
             --arg cname "${CONTAINER_NAME}" \
             --arg port "${PORT}" \
+            --arg db_url "${DB_URL}" \
+            --arg gemini_api_key "${GEMINI_API_KEY}" \
+            --arg gemini_model "${GEMINI_MODEL}" \
+            --arg enable_reco_scheduler "${ENABLE_RECO_SCHEDULER}" \
+            --arg reco_scheduler_cron "${RECO_SCHEDULER_CRON}" \
+            --arg reco_scheduler_tz "${RECO_SCHEDULER_TZ}" \
+            --arg reco_scheduler_top_k "${RECO_SCHEDULER_TOP_K}" \
+            --arg reco_scheduler_search_k "${RECO_SCHEDULER_SEARCH_K}" \
+            --arg api_key "${API_KEY}" \
+            --arg runpod_endpoint_id "${RUNPOD_ENDPOINT_ID}" \
+            --arg runpod_api_key "${RUNPOD_API_KEY}" \
+            --arg runpod_poll_interval_seconds "${RUNPOD_POLL_INTERVAL_SECONDS}" \
+            --arg runpod_poll_timeout_seconds "${RUNPOD_POLL_TIMEOUT_SECONDS}" \
             '[
-              "set -eu",
+              "set -euo pipefail",
               ("aws ecr get-login-password --region " + $region + " | docker login --username AWS --password-stdin " + $registry),
               "df -h || true",
               "df -ih || true",
@@ -135,7 +162,13 @@ jobs:
               ("docker pull " + $image),
               ("docker stop " + $cname + " || true"),
               ("docker rm " + $cname + " || true"),
-              ("docker run -d --name " + $cname + " -p " + $port + ":" + $port + " --restart unless-stopped --env-file /home/ubuntu/app/ai/.env " + $image),
+              "ENV_FILE=$(mktemp /tmp/ai.runtime.XXXXXX.env)",
+              "trap '\''rm -f \"$ENV_FILE\"'\'' EXIT",
+              ("cat > \"$ENV_FILE\" <<'\''EOF'\''\nDB_URL=" + $db_url + "\nGEMINI_API_KEY=" + $gemini_api_key + "\nGEMINI_MODEL=" + $gemini_model + "\nENABLE_RECO_SCHEDULER=" + $enable_reco_scheduler + "\nRECO_SCHEDULER_CRON=" + $reco_scheduler_cron + "\nRECO_SCHEDULER_TZ=" + $reco_scheduler_tz + "\nRECO_SCHEDULER_TOP_K=" + $reco_scheduler_top_k + "\nRECO_SCHEDULER_SEARCH_K=" + $reco_scheduler_search_k + "\nAPI_KEY=" + $api_key + "\nRUNPOD_ENDPOINT_ID=" + $runpod_endpoint_id + "\nRUNPOD_API_KEY=" + $runpod_api_key + "\nRUNPOD_POLL_INTERVAL_SECONDS=" + $runpod_poll_interval_seconds + "\nRUNPOD_POLL_TIMEOUT_SECONDS=" + $runpod_poll_timeout_seconds + "\nEOF"),
+              "chmod 600 \"$ENV_FILE\"",
+              ("docker run -d --name " + $cname + " -p " + $port + ":" + $port + " --restart unless-stopped --env-file \"$ENV_FILE\" " + $image),
+              "rm -f \"$ENV_FILE\"",
+              "trap - EXIT",
               "docker image prune -f"
             ]')
 
