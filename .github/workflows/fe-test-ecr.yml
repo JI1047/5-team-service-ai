@@ -60,6 +60,14 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Cleanup Docker cache before build
+        run: |
+          docker system prune -af || true
+          docker builder prune -af || true
+
+      - name: Show disk usage
+        run: df -h
+
       - name: Configure AWS credentials (OIDC)
         uses: aws-actions/configure-aws-credentials@v4
         with:
